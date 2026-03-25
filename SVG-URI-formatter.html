@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Modifier</title>
+</head>
+<body>
+    <h1>SVG File Modifier</h1>
+    <input type="file" id="fileInput" accept=".svg">
+    <br><br>
+    <label for="svgTextarea">Or paste your SVG here:</label><br>
+    <textarea id="svgTextarea" rows="10" cols="80" placeholder="Paste SVG content here..."></textarea>
+    <br><br>
+    <button onclick="processSVG()">Process SVG</button>
+    <br><br>
+    <h2>Modified SVG Data URI</h2>
+    <textarea id="dataUriOutput" rows="5" cols="80"></textarea>
+    <br><br>
+    <h2>SVG Preview</h2>
+    <div id="svgPreviewContainer">
+        <img id="svgPreview" alt="SVG preview will appear here" style="max-width: min(100%, 400px); height: auto; border: 1px solid #ccc;">
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const svgContent = e.target.result;
+                    document.getElementById('svgTextarea').value = svgContent;
+                };
+                reader.readAsText(file);
+            }
+        });
+
+	function getRandomLetters() {
+            let letters = '';
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+            for (let i = 0; i < 4; i++) {
+            	const randomIndex = Math.floor(Math.random() * alphabet.length);
+            	letters += alphabet[randomIndex];
+            }
+
+            return letters;
+	}
+
+        function processSVG() {
+            const svgTextarea = document.getElementById('svgTextarea');
+
+            let svgContent = svgTextarea.value.trim();
+
+            if (svgContent === '') {
+                alert('Please upload a file or paste SVG content.');
+                return;
+            }
+
+            applyReplacements(svgContent);
+        }
+
+        function applyReplacements(svgContent) {
+	    let newId = getRandomLetters() + '_';
+
+            // Hard-coded regex replacements
+            const replacements = [
+                { regex: /href="#/g, replaceWith: 'href="#' + newId },
+                { regex: /id="/g, replaceWith: 'id="' + newId },
+                { regex: /url\(#/g, replaceWith: 'url(#' + newId },
+                { regex: /#/g, replaceWith: '%23' },
+                { regex: /"/g, replaceWith: "'" },
+                { regex: />\s*</g, replaceWith: '><' },
+                { regex: /\s+/g, replaceWith: ' ' },
+                { regex: /xml:space="preserve"/g, replaceWith: ' ' },
+            ];
+
+            replacements.forEach(({ regex, replaceWith }) => {
+                svgContent = svgContent.replace(regex, replaceWith);
+            });
+
+            const encodedDataUri = 'data:image/svg+xml;charset=utf-8,' + svgContent;
+            document.getElementById('dataUriOutput').value = encodedDataUri;
+
+            // Update the SVG preview
+            document.getElementById('svgPreview').src = encodedDataUri;
+        }
+    </script>
+</body>
+</html>

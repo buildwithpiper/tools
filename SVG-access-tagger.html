@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inkscape-to-Accessible SVG Pro</title>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 20px; max-width: 1200px; margin: auto; background: #f0f4f8; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { color: #1e293b; margin-top: 0; display: flex; align-items: center; gap: 10px; }
+        textarea { width: 100%; height: 300px; font-family: 'Fira Code', monospace; font-size: 12px; margin: 15px 0; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
+        .toolbar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn-run { background: #4f46e5; color: white; }
+        .btn-run:hover { background: #4338ca; }
+        .btn-file { background: #f8fafc; border: 1px solid #cbd5e1; color: #475569; }
+        .btn-download { background: #10b981; color: white; }
+        .btn-download:disabled { background: #94a3b8; cursor: not-allowed; }
+        .status { padding: 10px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 0.9rem; margin-bottom: 15px; border-left: 4px solid #4f46e5; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2><span>♿</span> Inkscape Accessibility Processor</h2>
+    <p>Cleans Inkscape/Sodipodi metadata and injects ARIA roles for screen reader optimization.</p>
+
+    <div id="statusMsg" class="status" style="display:none;"></div>
+
+    <div class="toolbar">
+        <input type="file" id="fileInput" class="hidden" accept=".svg">
+        <button class="btn-file" id="uploadBtn">📂 Open Inkscape SVG</button>
+        <button class="btn-run" id="processBtn">⚡ Optimize & Inject ARIA</button>
+        <button class="btn-download" id="downloadBtn" disabled>💾 Download Accessible SVG</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <textarea id="input" placeholder="Paste Inkscape SVG source here..."></textarea>
+        <textarea id="output" readonly placeholder="Semantic, optimized SVG will appear here..."></textarea>
+    </div>
+</div>
+
+<script type="module">
+    import { optimize } from 'https://esm.sh/svgo@3.3.3';
+
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const statusMsg = document.getElementById('statusMsg');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    // 1. File Handling
+    document.getElementById('uploadBtn').onclick = () => document.getElementById('fileInput').click();
+    document.getElementById('fileInput').onchange = async (e) => {
+        if (e.target.files[0]) input.value = await e.target.files[0].text();
+    };
+
+    // 2. Main Processing
+    document.getElementById('processBtn').onclick = async () => {
+        const raw = input.value;
+        if (!raw.trim()) return;
+
+        try {
+            // STEP A: SVGO Pass (Cleaning Inkscape Bloat)
+            // We use 4 decimal precision and aggressive metadata removal
+            const cleaned = optimize(raw, {
+                multipass: true,
+                plugins: [
+                    {
+                        name: 'preset-default',
+                        params: {
+                            overrides: {
+                                // --- THE FIX: STOP COLLAPSING GROUPS ---
+                                collapseGroups: false, 
+                                moveElemsAttrsToGroup: false,
+                                moveGroupAttrsToElems: false,
+                                
+                                // --- KEEP YOUR ACCESSIBILITY TAGS ---
+                                removeTitle: false,
+                                removeDesc: false,
+                                cleanupIDs: false, 
+                                
+                                // --- PRECISION ---
+                                cleanupNumericValues: { floatPrecision: 4 },
+                                convertPathData: { floatPrecision: 4 }
+                            }
+                        }
+                    },
+                    'removeDimensions',
+                    'sortAttrs'
+                ]
+            });
+
+            // STEP B: Semantic Injection via DOMParser
+            const finalSvg = injectAccessibility(cleaned.data);
+
+            output.value = finalSvg;
+            downloadBtn.disabled = false;
+        } catch (err) {
+            console.error(err);
+            alert("Processing error: " + err.message);
+        }
+    };
+
+    function injectAccessibility(svgString) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgString, 'image/svg+xml');
+        const svg = doc.querySelector('svg');
+        let semanticCount = 0;
+
+        if (!svg) return svgString;
+
+        // Set high-level roles
+        svg.setAttribute('role', 'graphics-document');
+        svg.setAttribute('aria-label', doc.querySelector('title')?.textContent || 'Blueprint');
+
+        // Target groups and shapes that Inkscape labeled
+        const containers = doc.querySelectorAll('g, path, rect, circle, polygon');
+
+        containers.forEach((el, i) => {
+            const title = el.querySelector('title');
+            const desc = el.querySelector('desc');
+
+            if (title || desc) {
+                semanticCount++;
+                const refs = [];
+
+                if (title) {
+                    const tid = title.id || `acc-t-${i}`;
+                    title.id = tid;
+                    refs.push(tid);
+                }
+                if (desc) {
+                    const did = desc.id || `acc-d-${i}`;
+                    desc.id = did;
+                    refs.push(did);
+                }
+
+                el.setAttribute('role', 'graphics-object');
+                el.setAttribute('aria-labelledby', refs.join(' '));
+                el.setAttribute('tabindex', '0'); // Essential for screen reader focus
+            }
+        });
+
+        statusMsg.style.display = 'block';
+        statusMsg.innerText = `Cleaned Inkscape metadata and successfully linked ${semanticCount} semantic elements.`;
+        
+        return new XMLSerializer().serializeToString(doc);
+    }
+
+    // 3. Download Logic
+    downloadBtn.onclick = () => {
+        const blob = new Blob([output.value], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'accessible_blueprint.svg';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+</script>
+
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SVG Two-Pass Pro Tool + Preview</title>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 20px; max-width: 1200px; margin: auto; line-height: 1.5; background: #f8fafc; }
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .preview-container { grid-column: span 2; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 20px; position: relative; }
+        .preview-container::before { content: 'Live Preview'; position: absolute; top: 10px; left: 10px; font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
+        /* Ensures the SVG fits the preview box */
+        #previewWindow svg { max-width: 100%; max-height: 400px; height: auto; }
+        
+        textarea { width: 100%; height: 200px; font-family: ui-monospace, monospace; font-size: 11px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #processBtn { background: #2563eb; color: white; }
+        #downloadBtn { background: #16a34a; color: white; }
+        #uploadBtn { background: #64748b; color: white; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>SVG Two-Pass Optimizer & Preview</h2>
+
+    <div class="controls">
+        <input type="file" id="fileInput" class="hidden" accept=".svg">
+        <button id="uploadBtn">📂 Upload</button>
+        <button id="processBtn">⚡ Optimize & Preview</button>
+        <button id="downloadBtn" disabled>💾 Download</button>
+    </div>
+
+    <div class="grid-container">
+        <div>
+            <strong>Input SVG</strong>
+            <textarea id="input" placeholder="Paste SVG code..."></textarea>
+        </div>
+        <div>
+            <strong>Optimized Code</strong>
+            <textarea id="output" readonly placeholder="Result code..."></textarea>
+        </div>
+        <div class="preview-container" id="previewWindow">
+            <span style="color: #cbd5e1;">Optimization result will render here</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { optimize } from 'https://esm.sh/svgo@3.3.3';
+
+        const inputArea = document.getElementById('input');
+        const outputArea = document.getElementById('output');
+        const previewWindow = document.getElementById('previewWindow');
+        const fileInput = document.getElementById('fileInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        const firstPassConfig = {
+            multipass: true,
+            plugins: [
+                {
+                    name: 'preset-default',
+                    params: {
+                        overrides: {
+                            cleanupNumericValues: { floatPrecision: 4 },
+                            convertPathData: { floatPrecision: 4 },
+                            mergePaths: true,
+                            collapseGroups: true,
+                            convertShapeToPath: true
+                        }
+                    }
+                },
+                'sortAttrs',
+                'removeDimensions'
+            ]
+        };
+
+        const secondPassConfig = {
+            multipass: true,
+            plugins: [
+                'removeStyleElement',
+                'convertStyleToAttrs',
+                'minifyStyles',
+                'sortAttrs'
+            ]
+        };
+
+        // File Loading
+        document.getElementById('uploadBtn').onclick = () => fileInput.click();
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) inputArea.value = await file.text();
+        };
+
+        // Processing Logic
+        document.getElementById('processBtn').onclick = async () => {
+            const rawSvg = inputArea.value;
+            if (!rawSvg.trim()) return;
+
+            try {
+                // Pass 1
+                const res1 = optimize(rawSvg, firstPassConfig);
+                let data = res1.data;
+
+                // Intermediate custom logic
+                data = transformClassesToStyles(data);
+
+                // Pass 2
+                const res2 = optimize(data, secondPassConfig);
+                
+                // Update UI
+                outputArea.value = res2.data;
+                previewWindow.innerHTML = res2.data; // Inject SVG into preview
+                downloadBtn.disabled = false;
+            } catch (err) {
+                console.error(err);
+                alert("Optimization failed: " + err.message);
+            }
+        };
+
+        // Download Logic
+        downloadBtn.onclick = () => {
+            const blob = new Blob([outputArea.value], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'optimized.svg';
+            link.click();
+            URL.revokeObjectURL(url);
+        };
+
+        function transformClassesToStyles(svgContent) {
+            let styleContent = svgContent.replace(/<\/*style>/g,'|||').split('|||');
+            let styleParts = styleContent[1].trim().split('}');
+            
+            let styles=[]; 
+            styleParts.forEach((c, i)=>{
+                if (c !== '') {
+                    let t = c.split('{');
+                    styleParts[i] = t[0];
+                    styles[i] = t[1];
+                }
+            });
+            let result = {};
+            styles.forEach((c,i)=>{
+                let r = styleParts[i].replace(/\./g,'').split(',');
+                r.forEach(z => {
+                    if (!result[z]) result[z] = '';
+                    result[z] += (c + ';');
+                });
+            });
+
+            let svgNew = styleContent[0] + styleContent[2];
+            Object.keys(result).forEach(key => {
+                const replacer = new RegExp(`class="${key}"`, 'g');
+                svgNew = svgNew.replace(replacer, `style="${result[key]}"`);
+            });
+
+            return svgNew;
+        }
+    </script>
+</body>
+</html>
