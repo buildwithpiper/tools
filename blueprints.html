@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessible Blueprint Viewer</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --sidebar: 320px; --amber: #f59e0b; }
+        body { font-family: system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); color: #1e293b; }
+        
+        /* --- SKIP TO CONTENT --- */
+        .skip-link {
+            position: absolute; top: -100px; left: 0; background: var(--amber); color: black;
+            padding: 15px; z-index: 1000; transition: top 0.2s; font-weight: bold; text-decoration: none;
+        }
+        .skip-link:focus { top: 0; outline: 3px solid black; }
+
+        /* Sidebar Navigation */
+        aside { width: var(--sidebar); background: white; display: flex; flex-direction: column; z-index: 10; }
+        .sidebar-header { padding: 20px; background: var(--primary); color: white; }
+        .nav-list { flex: 1; overflow-y: auto; padding: 10px; }
+        
+        /* Two-Layer Accordion Styles */
+        .kit-group { border-bottom: 1px solid #f1f5f9; margin-bottom: 5px; }
+        .kit-header { 
+            width: 100%; text-align: left; background: #f8fafc; border: none;
+            padding: 12px 15px; cursor: pointer; font-weight: bold; display: flex;
+            justify-content: space-between; align-items: center; border-radius: 6px;
+        }
+        .kit-header:focus { outline: 2px solid var(--primary); }
+        .kit-header::after { content: '▾'; font-size: 0.8rem; opacity: 0.5; }
+        
+        .pages-list { display: none; padding-left: 15px; margin-top: 5px; }
+        .kit-group.open .pages-list { display: block; }
+        .kit-group.open .kit-header::after { content: '▴'; }
+
+        .nav-item { 
+            width: 100%; text-align: left; background: none; color: inherit;
+            padding: 10px 15px; margin-bottom: 4px; cursor: pointer; border-radius: 6px;
+            border: 2px solid transparent; transition: all 0.2s; font-size: 0.95rem;
+        }
+        .nav-item:hover { background: #f1f5f9; }
+        .nav-item:focus { outline: none; border-color: var(--primary); background: #eff6ff; }
+        .nav-item.active { background: #eff6ff; border-color: var(--primary); font-weight: 600; color: var(--primary); }
+
+        /* Main Viewport */
+        main { flex: 1; position: relative; overflow: hidden; background-color: #333; display: block; }
+        #svg-wrapper { position: absolute; transform-origin: 0 0; cursor: grab; visibility: visible; }
+        #svg-wrapper svg { display: block; width: 100%; height: 100%; background: white; box-shadow: 0 0 50px rgba(0,0,0,0.3); }
+
+        /* The Raster Ghost */
+        #ghost-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
+        .is-transforming svg { visibility: hidden !important; }
+        .is-transforming #ghost-canvas { display: block !important; }
+
+        /* Focus States */
+        #svg-wrapper [tabindex="0"]:focus, #svg-wrapper svg:focus {
+            outline: 5px solid var(--amber); outline-offset: 4px;
+            filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5));
+        }
+
+        .controls { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; }
+        .btn { 
+            width: 48px; height: 48px; border-radius: 50%; border: 2px solid transparent; 
+            background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+            cursor: pointer; font-size: 24px; font-weight: bold; 
+            display: flex; align-items: center; justify-content: center; color: #333;
+        }
+        .btn:focus { outline: none; border-color: var(--amber); }
+        .btn>svg {
+            height: 24px;
+            width: 24px;
+        }
+        /* --- HELP MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 2000; display: none;
+            justify-content: center; align-items: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative;
+        }
+        .modal h3 { margin-top: 0; color: var(--primary); }
+        .modal-close {
+            position: absolute; top: 15px; right: 15px; background: none; border: none;
+            font-size: 1.5rem; cursor: pointer; color: #94a3b8; padding: 5px;
+        }
+        .modal-close:focus { outline: 2px solid var(--amber); border-radius: 4px; color: black; }
+        .shortcut-list { list-style: none; padding: 0; margin: 0; }
+        .shortcut-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .shortcut-key { font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <a href="#viewport" class="skip-link">Skip to Content</a>
+
+    <aside aria-label="Blueprint Selection">
+        <div class="sidebar-header">
+            <h2 style="margin:0; font-size: 1.1rem;">Blueprint Archive</h2>
+        </div>
+        <nav class="nav-list" id="navList" role="navigation"></nav>
+    </aside>
+
+    <main id="viewport" role="region" aria-label="Blueprint Viewer" tabindex="-1">
+        <div id="svg-wrapper" aria-live="polite">
+            <p style="color: white; padding: 20px;">Open a kit and select a page to begin viewing.</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="openHelp()" aria-label="Keyboard Shortcuts Help">?</button>
+            <button class="btn" onclick="zoomAction(1.2)" aria-label="Zoom In">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.9 47.7">
+                    <g fill="none" stroke="#aaa" transform="translate(-60 -97.4)">
+                        <circle cx="83.2" cy="120.6" r="21.2" stroke-width="4"/>
+                        <path stroke-width="8" d="m97.8 135 7.3 7.3"/>
+                        <path stroke-width="5" d="M83.2 108v24.5m12.3-12.3H70.9" stroke="#333"/>
+                    </g>
+                </svg>
+            </button>
+            <button class="btn" onclick="zoomAction(0.8)" aria-label="Zoom Out">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.9 47.7">
+                    <g fill="none" stroke="#aaa" transform="translate(-60 -97.4)">
+                        <circle cx="83.2" cy="120.6" r="21.2" stroke-width="4"/>
+                        <path stroke-width="8" d="m97.8 135 7.3 7.3"/>
+                        <path stroke-width="5" d="M95.5 120.2H70.9" stroke="#333"/>
+                    </g>
+                </svg>
+            </button>
+            <button class="btn" onclick="fitToScreen()" aria-label="Reset View">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.9 47.7">
+                    <g fill="none" stroke="#aaa" transform="translate(-60 -97.4)">
+                        <circle cx="83.2" cy="120.6" r="21.2" stroke-width="4"/>
+                        <path stroke-width="8" d="m97.8 135 7.3 7.3"/>
+                        <path stroke-width="5" d="M79.2 130h-5.8v-5.8m0-7.5v-6.4h5.8m8 0H93v6.4m0 7.5v5.8h-5.8" stroke="#333"/>
+                    </g>
+                </svg>
+            </button>
+        </div>
+    </main>
+
+    <div class="modal-overlay" id="helpModal" onclick="closeHelp(event)">
+        <div class="modal" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+            <button class="modal-close" onclick="closeHelp(event)" aria-label="Close Help Modal">×</button>
+            <h3 id="modalTitle">Keyboard Shortcuts</h3>
+            <ul class="shortcut-list" id="modalDesc">
+                <li class="shortcut-item"><span>Pan Blueprint</span> <span class="shortcut-key">Arrow Keys</span></li>
+                <li class="shortcut-item"><span>Zoom In</span> <span class="shortcut-key">+</span> or <span class="shortcut-key">=</span></li>
+                <li class="shortcut-item"><span>Zoom Out</span> <span class="shortcut-key">-</span></li>
+                <li class="shortcut-item"><span>Reset View / Fit to Screen</span> <span class="shortcut-key">0</span></li>
+                <li class="shortcut-item"><span>Navigate Between Elements</span> <span class="shortcut-key">Tab</span> / <span class="shortcut-key">Shift+Tab</span></li>
+                <li class="shortcut-item"><span>Toggle Kit Folder</span> <span class="shortcut-key">Enter</span> or <span class="shortcut-key">Space</span></li>
+                <li class="shortcut-item"><span>Load Page</span> <span class="shortcut-key">Enter</span> or <span class="shortcut-key">Space</span></li>
+                <li class="shortcut-item"><span>Open/Close Help</span> <span class="shortcut-key">?</span> or <span class="shortcut-key">Esc</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Two-Layer Data Structure
+        const blueprintKits = [
+            {
+                name: "Base Station",
+                pages: [
+                    { id: 'bs-1', title: 'Side A - Assembly', url: 'assets/blueprints/base-station-1.svg' },
+                    { id: 'bs-2', title: 'Side B - Disassembly', url: 'assets/blueprints/base-station-2.svg' },
+                    { id: 'bs-3', title: 'Component Sheet 1', url: 'assets/blueprints/base-station-3.svg' },
+                    { id: 'bs-4', title: 'Component Sheet 2', url: 'assets/blueprints/base-station-4.svg' }
+                ]
+            },
+            {
+                name: "Rover",
+                pages: [
+                    { id: 'rv-1', title: 'Side A - Assembly', url: 'assets/blueprints/rover-1.svg' },
+                    { id: 'rv-2', title: 'Side B - Disassembly', url: 'assets/blueprints/rover-2.svg' },
+                    { id: 'rv-3', title: 'Component Sheet', url: 'assets/blueprints/rover-3.svg' },
+                ]
+            }
+        ];
+
+        const viewport = document.getElementById('viewport');
+        const wrapper = document.getElementById('svg-wrapper');
+        const navList = document.getElementById('navList');
+        const helpModal = document.getElementById('helpModal');
+        let lastFocusedElement = null;
+
+        let scale = 1, pointX = 0, pointY = 0, isPanning = false, isTransforming = false, transformTimer = null, start = { x: 0, y: 0 };
+
+        // Build Accordion Menu (Updated with IDs for URL targeting)
+        blueprintKits.forEach((kit, kIndex) => {
+            const group = document.createElement('div');
+            group.className = 'kit-group';
+            group.id = `kit-group-${kIndex}`; // ID for deep-linking
+            
+            const header = document.createElement('button');
+            header.className = 'kit-header';
+            header.textContent = kit.name;
+            header.setAttribute('aria-expanded', 'false');
+            header.onclick = () => {
+                const isOpen = group.classList.toggle('open');
+                header.setAttribute('aria-expanded', isOpen);
+            };
+            
+            const pagesList = document.createElement('div');
+            pagesList.className = 'pages-list';
+            
+            kit.pages.forEach((page, pIndex) => {
+                const btn = document.createElement('button');
+                btn.className = 'nav-item';
+                btn.id = `page-btn-${kIndex}-${pIndex}`; // ID for deep-linking
+                btn.textContent = page.title;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    loadSVG(page, btn);
+                    updateURL(kIndex, pIndex); // Update URL when user clicks
+                };
+                pagesList.appendChild(btn);
+            });
+
+            group.appendChild(header);
+            group.appendChild(pagesList);
+            navList.appendChild(group);
+        });
+
+        // URL Parameter Handling
+        function handleURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            const kIndex = parseInt(params.get('kit'));
+            const pIndex = parseInt(params.get('page'));
+
+            if (!isNaN(kIndex) && blueprintKits[kIndex]) {
+                const group = document.getElementById(`kit-group-${kIndex}`);
+                group.classList.add('open');
+                group.querySelector('.kit-header').setAttribute('aria-expanded', 'true');
+
+                if (!isNaN(pIndex) && blueprintKits[kIndex].pages[pIndex]) {
+                    const page = blueprintKits[kIndex].pages[pIndex];
+                    const btn = document.getElementById(`page-btn-${kIndex}-${pIndex}`);
+                    loadSVG(page, btn);
+                }
+            }
+        }
+
+        // Update the browser URL without refreshing the page
+        function updateURL(kIndex, pIndex) {
+            const newurl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?kit=${kIndex}&page=${pIndex}`;
+            window.history.pushState({path:newurl}, '', newurl);
+        }
+
+        // Initialize
+        window.onload = handleURLParams;
+
+        // Load SVG with Raster Ghost
+        async function loadSVG(page, el) {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+            
+            try {
+                const resp = await fetch(page.url);
+                const svgText = await resp.text();
+                wrapper.innerHTML = svgText + '<img id="ghost-canvas" alt="">';
+                
+                const svgEl = wrapper.querySelector('svg');
+                const ghostEl = document.getElementById('ghost-canvas');
+
+                if (svgEl) {
+                    const viewBox = svgEl.viewBox.baseVal;
+                    const width = viewBox.width || 800, height = viewBox.height || 600;
+                    wrapper.style.width = width + "px";
+                    wrapper.style.height = height + "px";
+                    svgEl.setAttribute('tabindex', '0');
+                    svgEl.setAttribute('role', 'graphics-document');
+                    generateGhost(svgEl, ghostEl, width, height);
+                    setTimeout(fitToScreen, 50);
+                }
+            } catch (err) {
+                wrapper.innerHTML = `<p style="color:red; padding:20px;">Error: ${err.message}</p>`;
+            }
+        }
+
+        function generateGhost(svgEl, ghostEl, w, h) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = w; canvas.height = h;
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const img = new Image();
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0);
+                ghostEl.src = canvas.toDataURL('image/png');
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        }
+
+        // Transformation & Perf
+        function startTransforming() {
+            if (!isTransforming) { wrapper.classList.add('is-transforming'); isTransforming = true; }
+            clearTimeout(transformTimer);
+            transformTimer = setTimeout(() => {
+                wrapper.classList.remove('is-transforming'); isTransforming = false;
+            }, 150);
+        }
+
+        function setTransform() {
+            wrapper.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+        }
+
+        function fitToScreen() {
+            const vRect = viewport.getBoundingClientRect(), wWidth = parseFloat(wrapper.style.width), wHeight = parseFloat(wrapper.style.height);
+            if (!wWidth) return;
+            const padding = 60, scaleX = (vRect.width - padding) / wWidth, scaleY = (vRect.height - padding) / wHeight;
+            scale = Math.min(scaleX, scaleY);
+            pointX = (vRect.width - wWidth * scale) / 2;
+            pointY = (vRect.height - wHeight * scale) / 2;
+            setTransform();
+        }
+
+        // Input Listeners
+        window.addEventListener('keydown', (e) => {
+            // Handle help modal toggling separately
+            if (e.key === '?' || e.key === '¿') {
+                toggleHelp();
+                e.preventDefault();
+                return;
+            }
+            if (e.key === 'Escape' && helpModal.classList.contains('open')) {
+                closeHelp();
+                e.preventDefault();
+                return;
+            }
+
+            // If modal is open, don't trigger blueprint controls
+            if (helpModal.classList.contains('open')) return;
+
+            const panStep = 60;
+            if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','=','0'].includes(e.key)) {
+                startTransforming();
+                if (e.key === 'ArrowLeft') pointX += panStep;
+                if (e.key === 'ArrowRight') pointX -= panStep;
+                if (e.key === 'ArrowUp') pointY += panStep;
+                if (e.key === 'ArrowDown') pointY -= panStep;
+                if (e.key === '+' || e.key === '=') zoomAction(1.2);
+                if (e.key === '-') zoomAction(0.8);
+                if (e.key === '0') fitToScreen();
+                e.preventDefault();
+                setTransform();
+            }
+        });
+
+        viewport.onwheel = function (e) {
+            if (helpModal.classList.contains('open')) return;
+            e.preventDefault(); startTransforming();
+            const delta = e.deltaY > 0 ? 0.8 : 1.2;
+            const newScale = Math.min(Math.max(0.05, scale * delta), 15);
+            const rect = viewport.getBoundingClientRect();
+            const mX = e.clientX - rect.left, mY = e.clientY - rect.top;
+            pointX = mX - (mX - pointX) * (newScale / scale);
+            pointY = mY - (mY - pointY) * (newScale / scale);
+            scale = newScale; setTransform();
+        };
+
+        viewport.onmousedown = (e) => {
+            if (e.button !== 0 || helpModal.classList.contains('open')) return;
+            isPanning = true; startTransforming();
+            start = { x: e.clientX - pointX, y: e.clientY - pointY };
+        };
+
+        window.onmousemove = (e) => {
+            if (isPanning) { startTransforming(); pointX = e.clientX - start.x; pointY = e.clientY - start.y; setTransform(); }
+        };
+        window.onmouseup = () => isPanning = false;
+
+        function zoomAction(factor) {
+            if (helpModal.classList.contains('open')) return;
+            const vRect = viewport.getBoundingClientRect();
+            const midX = vRect.width / 2, midY = vRect.height / 2;
+            startTransforming();
+            const nS = scale * factor;
+            pointX = midX - (midX - pointX) * (nS / scale);
+            pointY = midY - (midY - pointY) * (nS / scale);
+            scale = nS; setTransform();
+        }
+
+        // Help Modal Logic
+        function toggleHelp() {
+            if (helpModal.classList.contains('open')) {
+                closeHelp();
+            } else {
+                openHelp();
+            }
+        }
+
+        function openHelp() {
+            lastFocusedElement = document.activeElement;
+            helpModal.classList.add('open');
+            // Manage focus: move focus to the modal's close button
+            setTimeout(() => helpModal.querySelector('.modal-close').focus(), 100);
+        }
+
+        function closeHelp(e) {
+            // Prevent closing if clicking inside the modal content
+            if (e && e.target !== helpModal && e.target !== helpModal.querySelector('.modal-close')) return;
+            
+            helpModal.classList.remove('open');
+            // Restore focus to where the user was
+            if (lastFocusedElement) lastFocusedElement.focus();
+        }
+    </script>
+</body>
+</html>
