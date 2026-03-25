@@ -1,26 +1,199 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <title></title>
-        <meta name="description" content="">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="">
-    </head>
-    <body>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Piper SVG Toolkit</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --piper-blue: #00a0e3; /* Approximate Piper Brand Blue */
+            --bg-color: #f4f7f9;
+            --text-main: #2d3436;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .logo {
+            height: 50px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: var(--piper-blue);
+            letter-spacing: -1px;
+        }
+
+        h2 {
+            margin: 0;
+            font-weight: 400;
+            color: #636e72;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .tool-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #e1e8ed;
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.08);
+            border-color: var(--piper-blue);
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: var(--piper-blue);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tool-card:hover::before {
+            opacity: 1;
+        }
+
+        .tool-info {
+            margin-left: 1rem;
+        }
+
+        .tool-name {
+            display: block;
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 1.05rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .tool-desc {
+            font-size: 0.85rem;
+            color: #b2bec3;
+        }
+
+        .icon {
+            background: #f0f3f5;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            color: var(--piper-blue);
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <img src="https://www.playpiper.com/cdn/shop/files/piper_color_squarecrop_d767d26a-d329-4944-aad9-4d4c9c0a8032_360x.png" alt="Piper Logo" class="logo">
         <h1>Piper Tools</h1>
-        <h2>SVG Tools</h2>
-        <ul>
-            <li><a href="https://dopiaza.org/goodies/data-uri-generator/">DataURI Generator</a></li>
-            <li><a href="https://yoksel.github.io/url-encoder/">CSS URI-Encoder for SVGs</a></li>
-            <li><a href="https://jakearchibald.github.io/svgomg/">SVGOMG - SVG Optimizer</a></li>
-            <li><a href="vector-text-generator.html">Vectorized Text Generator</a></li>
-            <li><a href="SVG-URI-formatter.html">SVG to DataURI Converter</a></li>
-            <li><a href="SVG-class-remover.html">Adober Illustrator SVG Class to Style Converter</a></li>
-            <li><a href="SVG-access-tagger.html">SVG Accessibility Tagger</a></li>
-        </ul>
-        
-        <script src="" async defer></script>
-    </body>
+        <h2>SVG Engineering Suite</h2>
+    </div>
+
+    <div class="grid">
+        <a href="vector-text-generator.html" class="tool-card">
+            <div class="icon">T</div>
+            <div class="tool-info">
+                <span class="tool-name">Vectorized Text Generator</span>
+                <span class="tool-desc">Create single-line paths for laser etching.</span>
+            </div>
+        </a>
+
+        <a href="SVG-URI-formatter.html" class="tool-card">
+            <div class="icon">U</div>
+            <div class="tool-info">
+                <span class="tool-name">SVG to DataURI Converter</span>
+                <span class="tool-desc">Format SVG code for CSS/HTML use.</span>
+            </div>
+        </a>
+
+        <a href="SVG-class-remover.html" class="tool-card">
+            <div class="icon">C</div>
+            <div class="tool-info">
+                <span class="tool-name">AI Class to Style Converter</span>
+                <span class="tool-desc">Clean up Illustrator exports for web.</span>
+            </div>
+        </a>
+
+        <a href="SVG-access-tagger.html" class="tool-card">
+            <div class="icon">A</div>
+            <div class="tool-info">
+                <span class="tool-name">Accessibility Tagger</span>
+                <span class="tool-desc">Add ARIA labels and titles to vectors.</span>
+            </div>
+        </a>
+
+        <a href="https://jakearchibald.github.io/svgomg/" target="_blank" class="tool-card">
+            <div class="icon">⚡</div>
+            <div class="tool-info">
+                <span class="tool-name">SVGOMG Optimizer</span>
+                <span class="tool-desc">External: Best-in-class SVG minifier.</span>
+            </div>
+        </a>
+
+        <a href="https://yoksel.github.io/url-encoder/" target="_blank" class="tool-card">
+            <div class="icon">🔗</div>
+            <div class="tool-info">
+                <span class="tool-name">CSS URI-Encoder</span>
+                <span class="tool-desc">External: Encode SVGs for background-image.</span>
+            </div>
+        </a>
+
+        <a href="https://dopiaza.org/goodies/data-uri-generator/" target="_blank" class="tool-card">
+            <div class="icon">D</div>
+            <div class="tool-info">
+                <span class="tool-name">DataURI Generator</span>
+                <span class="tool-desc">External: Universal file-to-URI converter.</span>
+            </div>
+        </a>
+    </div>
+
+</body>
 </html>

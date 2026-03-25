@@ -3,23 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG Modifier</title>
+    <title>Piper SVG Modifier</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --accent: #00a0e3;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 1rem;
+        }
+
+        .logo { height: 30px; }
+        
+        h1 { font-size: 1.5rem; margin: 0; color: var(--accent); }
+
+        .section-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        input[type="file"] {
+            background: #0f172a;
+            padding: 0.5rem;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            width: 100%;
+            box-sizing: border-box;
+            color: var(--text-dim);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary, .btn-copy { 
+            background: var(--primary); 
+            color: white; 
+        }
+        .btn-primary:hover, .btn-copy:hover { 
+            background: var(--primary-hover); 
+        }
+
+        #svgPreviewContainer {
+            margin-top: 2rem;
+            background: white; /* Contrast for the SVG */
+            padding: 2rem;
+            border-radius: 8px;
+            display: none;
+            text-align: center;
+        }
+
+        #svgPreview {
+            max-width: 100%;
+            height: auto;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+        }
+
+        .success-flash {
+            color: #22c55e;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>SVG File Modifier</h1>
-    <input type="file" id="fileInput" accept=".svg">
-    <br><br>
-    <label for="svgTextarea">Or paste your SVG here:</label><br>
-    <textarea id="svgTextarea" rows="10" cols="80" placeholder="Paste SVG content here..."></textarea>
-    <br><br>
-    <button onclick="processSVG()">Process SVG</button>
-    <br><br>
-    <h2>Modified SVG Data URI</h2>
-    <textarea id="dataUriOutput" rows="5" cols="80"></textarea>
-    <br><br>
-    <h2>SVG Preview</h2>
-    <div id="svgPreviewContainer">
-        <img id="svgPreview" alt="SVG preview will appear here" style="max-width: min(100%, 400px); height: auto; border: 1px solid #ccc;">
+
+    <div class="container">
+        <div class="header">
+            <img src="https://www.playpiper.com/cdn/shop/files/piper_color_squarecrop_d767d26a-d329-4944-aad9-4d4c9c0a8032_360x.png" class="logo">
+            <h1>SVG Modifier</h1>
+        </div>
+
+        <label class="section-label">1. Source SVG</label>
+        <input type="file" id="fileInput" accept=".svg">
+        
+        <label class="section-label">Or paste code</label>
+        <textarea id="svgTextarea" rows="8" placeholder="<svg>...</svg>"></textarea>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="processSVG()">Process & Generate URI</button>
+        </div>
+
+        <div id="outputSection" style="display: none;">
+            <label class="section-label">2. Modified Data URI</label>
+            <textarea id="dataUriOutput" rows="5" readonly></textarea>
+            <div class="button-group">
+                <button class="btn-copy" onclick="copyToClipboard()">Copy Data URI</button>
+            </div>
+            <div id="copyNotice" class="success-flash">Copied to clipboard!</div>
+
+            <label class="section-label">3. Preview</label>
+            <div id="svgPreviewContainer">
+                <img id="svgPreview" alt="Preview">
+            </div>
+        </div>
     </div>
 
     <script>
@@ -28,42 +171,34 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const svgContent = e.target.result;
-                    document.getElementById('svgTextarea').value = svgContent;
+                    document.getElementById('svgTextarea').value = e.target.result;
                 };
                 reader.readAsText(file);
             }
         });
 
-	function getRandomLetters() {
+        function getRandomLetters() {
             let letters = '';
             const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-
             for (let i = 0; i < 4; i++) {
-            	const randomIndex = Math.floor(Math.random() * alphabet.length);
-            	letters += alphabet[randomIndex];
+                letters += alphabet[Math.floor(Math.random() * alphabet.length)];
             }
-
             return letters;
-	}
+        }
 
         function processSVG() {
-            const svgTextarea = document.getElementById('svgTextarea');
-
-            let svgContent = svgTextarea.value.trim();
-
-            if (svgContent === '') {
+            const svgContent = document.getElementById('svgTextarea').value.trim();
+            if (!svgContent) {
                 alert('Please upload a file or paste SVG content.');
                 return;
             }
-
             applyReplacements(svgContent);
+            document.getElementById('outputSection').style.display = 'block';
+            document.getElementById('svgPreviewContainer').style.display = 'block';
         }
 
         function applyReplacements(svgContent) {
-	    let newId = getRandomLetters() + '_';
-
-            // Hard-coded regex replacements
+            let newId = getRandomLetters() + '_';
             const replacements = [
                 { regex: /href="#/g, replaceWith: 'href="#' + newId },
                 { regex: /id="/g, replaceWith: 'id="' + newId },
@@ -81,9 +216,17 @@
 
             const encodedDataUri = 'data:image/svg+xml;charset=utf-8,' + svgContent;
             document.getElementById('dataUriOutput').value = encodedDataUri;
-
-            // Update the SVG preview
             document.getElementById('svgPreview').src = encodedDataUri;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('dataUriOutput');
+            output.select();
+            document.execCommand('copy');
+            
+            const notice = document.getElementById('copyNotice');
+            notice.style.display = 'block';
+            setTimeout(() => notice.style.display = 'none', 2000);
         }
     </script>
 </body>
