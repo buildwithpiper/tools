@@ -23,7 +23,7 @@
 </head>
 <body>
 
-    <h2>SVG Two-Pass Optimizer & Preview</h2>
+    <h2>Blueprint SVG Optimizer & Preview</h2>
 
     <div class="controls">
         <input type="file" id="fileInput" class="hidden" accept=".svg">
@@ -71,17 +71,10 @@
                     }
                 },
                 'sortAttrs',
-                'removeDimensions'
-            ]
-        };
-
-        const secondPassConfig = {
-            multipass: true,
-            plugins: [
+                'removeDimensions',
                 'removeStyleElement',
                 'convertStyleToAttrs',
                 'minifyStyles',
-                'sortAttrs'
             ]
         };
 
@@ -104,13 +97,10 @@
 
                 // Intermediate custom logic
                 data = transformClassesToStyles(data);
-
-                // Pass 2
-                const res2 = optimize(data, secondPassConfig);
                 
                 // Update UI
-                outputArea.value = res2.data;
-                previewWindow.innerHTML = res2.data; // Inject SVG into preview
+                outputArea.value = data;
+                previewWindow.innerHTML = data; // Inject SVG into preview
                 downloadBtn.disabled = false;
             } catch (err) {
                 console.error(err);
@@ -130,32 +120,7 @@
         };
 
         function transformClassesToStyles(svgContent) {
-            let styleContent = svgContent.replace(/<\/*style>/g,'|||').split('|||');
-            let styleParts = styleContent[1].trim().split('}');
-            
-            let styles=[]; 
-            styleParts.forEach((c, i)=>{
-                if (c !== '') {
-                    let t = c.split('{');
-                    styleParts[i] = t[0];
-                    styles[i] = t[1];
-                }
-            });
-            let result = {};
-            styles.forEach((c,i)=>{
-                let r = styleParts[i].replace(/\./g,'').split(',');
-                r.forEach(z => {
-                    if (!result[z]) result[z] = '';
-                    result[z] += (c + ';');
-                });
-            });
-
-            let svgNew = styleContent[0] + styleContent[2];
-            Object.keys(result).forEach(key => {
-                const replacer = new RegExp(`class="${key}"`, 'g');
-                svgNew = svgNew.replace(replacer, `style="${result[key]}"`);
-            });
-
+            let svgNew = svgContent.trim().replace(/stroke-width=".[1-4][0-9]*"/g, 'stroke-width=".6"');
             return svgNew;
         }
     </script>
