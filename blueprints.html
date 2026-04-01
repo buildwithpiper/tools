@@ -6,7 +6,7 @@
     <title>Accessible Blueprint Viewer</title>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --sidebar: 320px; --amber: #f59e0b; }
-        body { font-family: system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); color: #1e293b; }
+        body { font-family: 'Montserrat', system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); color: #1e293b; }
 
         /* --- SKIP TO CONTENT --- */
         .skip-link {
@@ -116,6 +116,7 @@
             color: #fff;
             font-size: 18px;
             text-shadow: 0px 0px 4px #070;
+            font-family: 'Montserrat', system-ui, sans-serif;
         }
         .kit-header:focus { outline: 2px solid var(--primary); }
         .kit-header::after { 
@@ -136,9 +137,17 @@
         }
 
         .nav-item {
-            width: 100%; text-align: left; background: none; color: inherit;
-            padding: 10px 15px; margin-bottom: 4px; cursor: pointer; border-radius: 6px;
-            border: 2px solid transparent; transition: all 0.2s; font-size: 0.95rem;
+            width: 100%; text-align: left;
+            background: none;
+            color: inherit;
+            padding: 10px 15px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+            font-family: 'Montserrat', system-ui, sans-serif;
         }
         .nav-item:hover { background: #f1f5f9; }
         .nav-item:focus { outline: none; border-color: var(--primary); background: #eff6ff; }
@@ -250,14 +259,14 @@
             <button class="modal-close" onclick="closeHelp(event)" aria-label="Close Help Modal">×</button>
             <h3 id="modalTitle">Keyboard Shortcuts</h3>
             <ul class="shortcut-list" id="modalDesc">
-                <li class="shortcut-item"><span>Pan Blueprint</span> <span class="shortcut-key">Arrow Keys</span></li>
-                <li class="shortcut-item"><span>Zoom In</span> <span class="shortcut-key">+</span> or <span class="shortcut-key">=</span></li>
-                <li class="shortcut-item"><span>Zoom Out</span> <span class="shortcut-key">-</span></li>
-                <li class="shortcut-item"><span>Reset View / Fit to Screen</span> <span class="shortcut-key">0</span></li>
-                <li class="shortcut-item"><span>Navigate Between Elements</span> <span class="shortcut-key">Tab</span> / <span class="shortcut-key">Shift+Tab</span></li>
-                <li class="shortcut-item"><span>Toggle Kit Folder</span> <span class="shortcut-key">Enter</span> or <span class="shortcut-key">Space</span></li>
-                <li class="shortcut-item"><span>Load Page</span> <span class="shortcut-key">Enter</span> or <span class="shortcut-key">Space</span></li>
-                <li class="shortcut-item"><span>Open/Close Help</span> <span class="shortcut-key">?</span> or <span class="shortcut-key">Esc</span></li>
+                <li class="shortcut-item"><div><span>Pan Blueprint</span></div><div><span class="shortcut-key">Arrow Keys</span></div></li>
+                <li class="shortcut-item"><div><span>Zoom In</span></div><div><span class="shortcut-key">+</span> or <span class="shortcut-key">=</span></div></li>
+                <li class="shortcut-item"><div><span>Zoom Out</span></div><div><span class="shortcut-key">-</span></div></li>
+                <li class="shortcut-item"><div><span>Reset View / Fit to Screen</span></div><div><span class="shortcut-key">0</span></div></li>
+                <li class="shortcut-item"><div><span>Navigate Between Elements</span></div><div><span class="shortcut-key">Tab</span> / <span class="shortcut-key">Shift+Tab</span></div></li>
+                <li class="shortcut-item"><div><span>Toggle Kit Folder</span></div><div><span class="shortcut-key">Enter</span> or <span class="shortcut-key">Space</span></div></li>
+                <li class="shortcut-item"><div><span>Load Page</span></div><div><span class="shortcut-key">Enter</span> or <span class="shortcut-key">Space</span></div></li>
+                <li class="shortcut-item"><div><span>Open/Close Help</span></div><div><span class="shortcut-key">?</span> or <span class="shortcut-key">Esc</span></div></li>
             </ul>
         </div>
     </div>
