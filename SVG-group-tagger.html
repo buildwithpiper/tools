@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SVG Annotator with High-Res Preview</title>
+    <style>
+        :root { --primary: #2563eb; --sidebar: 600px; }
+        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; background: #f1f5f9; }
+        
+        main { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; background: #334155; padding: 40px; }
+        #svg-container { width: 90%; background: transparent; cursor: crosshair; }
+        #svg-container svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 0 20px rgba(0,0,0,0.5)); }
+
+        /* Sidebar & Preview */
+        aside { width: var(--sidebar); background: white; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 20px; }
+        
+        #detail-preview-box { 
+            width: 100%; 
+            height: 200px; 
+            background: #eee; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden;
+            border: 2px solid #cbd5e1;
+        }
+        #detail-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        .field { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.8rem; color: #64748b; text-transform: uppercase; }
+        input, textarea { 
+            width: 100%; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 6px; 
+            padding: 6px; 
+            box-sizing: border-box;
+            font-family: sans-serif; 
+        }
+        
+        .actions, .ai-buttons { 
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            justify-content: space-between;
+        }
+        button { 
+            padding: 10px; 
+            border-radius: 6px; 
+            border: none; cursor: 
+            pointer; 
+            font-weight: 600; 
+        }
+        .actions button {
+            width: 30%;
+        }
+        .ai-buttons button {
+             width:20%; 
+             margin-top: 10px; 
+             background: #10b981; 
+             color: white
+        }
+        .save-btn { background: var(--primary); color: white; }
+
+        /* Target any <g> that contains a <title> child */
+        g:has(title):has(desc) {
+            outline: 6px solid #0f0 !important;
+            outline-offset: 2px;
+        }
+
+        /* Ensure selected state still takes priority */
+        g.selected-group {
+            outline: 6px solid #f0f !important;
+            outline-offset: 2px;
+        }
+
+        /* Target the selected <g> that contains a <title> child */
+        g:has(title):has(desc).selected-group {
+            outline: 6px solid #f90 !important;
+            outline-offset: 2px;
+        }
+
+        #error-msg {
+            display: none;
+            background: #f2bd88;
+            color: #333;
+            padding: 6px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            margin-top: 12px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<main>
+    <div id="svg-container">
+        <p style="color:rgba(255,255,255,0.5);">Load SVG to begin.</p>
+    </div>
+</main>
+
+<aside>
+    <label>Detail Zoom</label>
+    <div id="detail-preview-box">
+        <img id="detail-img" alt="Click a group to see a high-res preview">
+    </div>
+
+    <div class="field" style="background: #eff6ff; padding: 10px; border-radius: 8px; border: 1px solid #dbeafe;">
+        <div style="display: flex;">
+            <label for="api-key" style="color: #2563eb;">Gemini API Key</label>
+            <input type="password" id="api-key" placeholder="Paste your key here..." style="margin-bottom: 5px; width: 60%; margin-right: 10px;">
+            <label for="step-number" style="color: #2563eb;">Step Number</label>
+            <input type="text" id="step-number" style="margin-bottom: 5px; width: 20%">
+        </div>
+        <small style="display:block; color: #64748b; font-size: 0.75rem; margin-bottom: 10px;">
+            Key is saved locally in your browser.
+        </small>
+        
+        <label style="color: #2563eb;">AI Hints</label>
+        <textarea id="ai-hints" placeholder="e.g. This is a floor plan for a server room..." style="height: 60px;"></textarea>
+        <div class="ai-buttons">
+            <button onclick="document.getElementById('ai-hints').value=`This is an assembly diagram. Parts labeled with letters reference specific types of hardware. Parts colored a lighter solid blue are plastic.`;">Assembly</button>
+            <button onclick="document.getElementById('ai-hints').value=`This is a materials list for this step.`;">Materials</button>
+            <button onclick="document.getElementById('ai-hints').value=`This is a a detail inset for this assembly step.`;">Detail</button>
+            <button onclick="askGemini()" id="ai-btn" style="background: #2563eb;">Generate (AI)</button>
+        </div>
+        <div id="error-msg">Error Message</div>
+    </div>
+
+    <div class="field">
+        <label>Selected ID</label>
+        <input type="text" id="el-id" readonly>
+    </div>
+
+    <div class="field">
+        <label>Aria Title</label>
+        <input type="text" id="el-title">
+    </div>
+
+    <div class="field">
+        <label>Aria Description</label>
+        <textarea id="el-desc" style="height:220px"></textarea>
+    </div>
+
+    <div class="actions">
+        <button class="save-btn" onclick="applyToSVG()">Apply Metadata</button>
+        <button onclick="document.getElementById('file-input').click()" style="background: #bbb;">Load SVG</button>
+        <button onclick="exportSVG()" style="background:#10b981; color:white;">Download SVG</button>
+    </div>
+    <input type="file" id="file-input" style="display:none" accept=".svg">
+</aside>
+
+<canvas id="master-canvas" style="display:none;"></canvas>
+
+<script>
+    let activeElement = null;
+    const container = document.getElementById('svg-container');
+    const masterCanvas = document.getElementById('master-canvas');
+    const detailImg = document.getElementById('detail-img');
+    const hresScale = 3; // Multiplier for "readability" resolution
+
+    document.getElementById('file-input').onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(event.target.result, "image/svg+xml");
+            const svg = doc.querySelector('svg');
+            svg.removeAttribute('width'); svg.removeAttribute('height');
+            container.innerHTML = "";
+            container.appendChild(svg);
+            
+            // Create the high-res master raster in the background
+            prepareMasterRaster(svg);
+            setupSVGListeners();
+        };
+        reader.readAsText(file);
+    };
+
+    async function prepareMasterRaster(svgEl) {
+        const viewBox = svgEl.viewBox.baseVal;
+        const width = viewBox.width || 800;
+        const height = viewBox.height || 600;
+
+        masterCanvas.width = width * hresScale;
+        masterCanvas.height = height * hresScale;
+
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(svgBlob);
+        
+        const img = new Image();
+        img.onload = () => {
+            const ctx = masterCanvas.getContext('2d');
+            ctx.clearRect(0,0, masterCanvas.width, masterCanvas.height);
+            ctx.drawImage(img, 0, 0, masterCanvas.width, masterCanvas.height);
+            URL.revokeObjectURL(url);
+            console.log("Master High-Res Raster Ready");
+        };
+        img.src = url;
+    }
+
+    function setupSVGListeners() {
+        const svg = container.querySelector('svg');
+        svg.addEventListener('click', (e) => {
+            const group = e.target.closest('g');
+            if (group) {
+                if (activeElement) activeElement.classList.remove('selected-group');
+                activeElement = group;
+                activeElement.classList.add('selected-group');
+
+                // Metadata Form
+                document.getElementById('el-id').value = activeElement.id || 'untagged';
+                document.getElementById('el-title').value = activeElement.querySelector('title')?.textContent || '';
+                document.getElementById('el-desc').value = activeElement.querySelector('desc')?.textContent || '';
+
+                // Extract Detail View
+                updateDetailView(activeElement);
+            }
+        });
+    }
+
+    function updateDetailView(el) {
+        const bbox = el.getBBox();
+        const padding = 20; // Extra area around the group
+
+        // Create a temporary crop canvas
+        const cropCanvas = document.createElement('canvas');
+        const cropCtx = cropCanvas.getContext('2d');
+
+        // Target dimensions for the snippet
+        const sw = (bbox.width + padding * 2) * hresScale;
+        const sh = (bbox.height + padding * 2) * hresScale;
+        const sx = (bbox.x - padding) * hresScale;
+        const sy = (bbox.y - padding) * hresScale;
+
+        cropCanvas.width = sw;
+        cropCanvas.height = sh;
+
+        // Draw from the high-res master to the crop canvas
+        cropCtx.drawImage(masterCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+        
+        // Push to the UI image
+        detailImg.src = cropCanvas.toDataURL('image/png');
+    }
+
+    function applyToSVG() {
+        if (!activeElement) return;
+        const t = document.getElementById('el-title').value;
+        const d = document.getElementById('el-desc').value;
+        activeElement.querySelectorAll('title, desc').forEach(n => n.remove());
+        if (d) { const de = document.createElementNS("http://www.w3.org/2000/svg", "desc"); de.textContent = d; activeElement.prepend(de); }
+        if (t) { const te = document.createElementNS("http://www.w3.org/2000/svg", "title"); te.textContent = t; activeElement.prepend(te); }
+        activeElement.setAttribute('role', 'region');
+        activeElement.setAttribute('tabindex', '0');
+    }
+
+    function exportSVG() {
+        const svg = container.querySelector('svg').cloneNode(true);
+        svg.querySelectorAll('.selected-group').forEach(el => el.classList.remove('selected-group'));
+        const source = new XMLSerializer().serializeToString(svg);
+        const link = document.createElement("a");
+        link.href = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+        link.download = "annotated_blueprint.svg";
+        link.click();
+    }
+
+    async function askGemini() {
+        const apiKey = document.getElementById('api-key').value;
+        let hints = document.getElementById('ai-hints').value;
+        const stepNumber = document.getElementById('step-number').value;
+        const btn = document.getElementById('ai-btn');
+
+        document.getElementById('error-msg').style.display = 'none';
+
+        if (stepNumber) {
+            hints = 'This is step ' + stepNumber + '. ' + (hints || '');
+        }
+
+        if (!apiKey) return alert("Please enter a Gemini API Key.");
+        if (!activeElement || !detailImg.src) return alert("Select a group first.");
+
+        btn.disabled = true;
+        btn.textContent = "Analyzing Image...";
+
+        // Clean the base64 string (remove 'data:image/png;base64,')
+        const base64Image = detailImg.src.split(',')[1];
+
+        const prompt = `You are an educator who is providing descriptions of visual instructions to young students with low or no vision. The assembly instructions for a STEM kit 
+        are in the format of a blueprint. Look at this blueprint snippet. The snippet may contain clips from irrelevant parts of the blueprint along the edges 
+        and those can be ignored - focus on the drawings in the central part of the snippet.
+        Provide a concise 'title' (3-8 words) and a 'description' for this specific instruction step or area for an accessibility tag.
+        The description should explain the pieces shown, how they can be identified and oriented in a tactile way, and how the instructions show they should be assembled.
+        Most of the materials in the kit are made from 5mm thick laser-cut plywood and are fastened using #4-40 brass hardware. 
+        Additional parts are often plastic and/or electronics components.
+        ${hints ? "Context Hints: " + hints : ""}
+        Return ONLY a JSON object like this: {"title": "...", "description": "..."}`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inline_data: { mime_type: "image/png", data: base64Image } }
+                        ]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error?.message) {
+                document.getElementById('error-msg').innerText = data.error.message;
+                document.getElementById('error-msg').style.display = 'block';
+
+            } else {
+                const rawText = data.candidates[0].content.parts[0].text;
+                
+                // Parse the JSON out of the response
+                const cleanJson = rawText.replace(/```json|```/g, "").trim();
+                const result = JSON.parse(cleanJson);
+
+                // Fill the form
+                document.getElementById('el-title').value = result.title;
+                document.getElementById('el-desc').value = result.description;
+            }
+
+        } catch (err) {
+            console.error(err);
+            //alert("AI Generation failed. Check console for details.");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Generate with AI";
+        }
+    }
+
+    // Persistent API Key Logic
+    const apiKeyInput = document.getElementById('api-key');
+
+    // 1. Load the key if it exists in storage
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedKey = localStorage.getItem('gemini_api_key');
+        if (savedKey) {
+            apiKeyInput.value = savedKey;
+            console.log("API Key loaded from local storage.");
+        }
+    });
+
+    // 2. Save the key whenever the user changes it
+    apiKeyInput.addEventListener('input', (e) => {
+        localStorage.setItem('gemini_api_key', e.target.value);
+    });
+</script>
+</body>
+</html>
