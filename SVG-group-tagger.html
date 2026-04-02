@@ -14,6 +14,10 @@
         /* Sidebar & Preview */
         aside { width: var(--sidebar); background: white; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 20px; }
         
+        .hidden {
+            display: none;
+        }
+
         #detail-preview-box { 
             width: 100%; 
             height: 200px; 
@@ -121,9 +125,14 @@
         <label style="color: #2563eb;">AI Hints</label>
         <textarea id="ai-hints" placeholder="e.g. This is a floor plan for a server room..." style="height: 60px;"></textarea>
         <div class="ai-buttons">
-            <button onclick="document.getElementById('ai-hints').value=`This is an assembly diagram. Parts labeled with letters reference specific types of hardware. Parts colored a lighter solid blue are plastic.`;">Assembly</button>
-            <button onclick="document.getElementById('ai-hints').value=`This is a materials list for this step.`;">Materials</button>
-            <button onclick="document.getElementById('ai-hints').value=`This is a a detail inset for this assembly step.`;">Detail</button>
+            <button onclick="switchType()" id="type-btn" style="background: #bbb; color: #000">Assemble</button>
+            <button class="btn-instruction" onclick="document.getElementById('ai-hints').value=`This is an assembly diagram. Parts labeled with letters reference specific types of hardware. Parts colored a lighter solid blue are plastic.`;">Assembly</button>
+            <button class="btn-instruction" onclick="document.getElementById('ai-hints').value=`This is a materials list for this step.`;">Materials</button>
+            <button class="btn-instruction" onclick="document.getElementById('ai-hints').value=`This is a a detail inset for this assembly step.`;">Detail</button>
+            <button class="btn-material hidden" onclick="document.getElementById('ai-hints').value=`This is a laser-cut wood piece.`;">Wood</button>
+            <button class="btn-material hidden" onclick="document.getElementById('ai-hints').value=`This is a / These are plastic piece(s).`;">Plastic</button>
+            <button class="btn-material hidden" onclick="document.getElementById('ai-hints').value=`This is a / These are hardware piece(s).`;">Hardware</button>
+            <button class="btn-material hidden" onclick="document.getElementById('ai-hints').value=`This is a / These are electronic component(s)/module(s).`;">Electronic</button>
             <button onclick="askGemini()" id="ai-btn" style="background: #2563eb;">Generate (AI)</button>
         </div>
         <div id="error-msg">Error Message</div>
@@ -155,11 +164,26 @@
 <canvas id="master-canvas" style="display:none;"></canvas>
 
 <script>
+    let modelName = 'gemini-flash-latest'; //'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-live-preview'
     let activeElement = null;
     const container = document.getElementById('svg-container');
     const masterCanvas = document.getElementById('master-canvas');
     const detailImg = document.getElementById('detail-img');
     const hresScale = 3; // Multiplier for "readability" resolution
+
+    let currentType = 'Assemble';
+
+    let promptData = {
+        'Assemble': {
+            prompt: `You are an educator who is providing descriptions of visual instructions to young students with low or no vision. The assembly instructions for a STEM kit are in the format of a blueprint. Look at this blueprint snippet. The snippet may contain clips from irrelevant parts of the blueprint along the edges and those can be ignored - focus on the drawings in the central part of the snippet. Provide a concise 'title' (3-8 words) and a 'description' for this specific instruction step or area for an accessibility tag. The description should explain the pieces shown, how they can be identified and oriented in a tactile way, and how the instructions show they should be assembled. Most of the materials in the kit are made from 5mm thick laser-cut plywood and are fastened using #4-40 brass hardware. Additional parts are often plastic and/or electronics components.`
+        },
+        'Disassemble': {
+            prompt: `You are an educator who is providing descriptions of visual instructions to young students with low or no vision. The assembly and disassembly instructions for a STEM kit are in the format of blueprints. Look at this blueprint snippet. The snippet may contain clips from irrelevant parts of the blueprint along the edges and those can be ignored - focus on the drawings in the central part of the snippet. Provide a concise 'title' (3-8 words) and a 'description' for this specific instruction step or area for an accessibility tag. The description should explain the pieces shown, how they can be identified and oriented in a tactile way, and how the instructions show they should be disassembled. Most of the materials in the kit are made from 5mm thick laser-cut plywood and are fastened using #4-40 brass hardware. Additional parts are often plastic and/or electronics components.`
+        },
+        'Component': {
+            prompt: `You are an educator who is providing descriptions of visual instructions to young students with low or no vision. The assembly instructions for a STEM kit are in the format of a blueprint. Look at this blueprint snippet. The snippet may contain clips from irrelevant parts of the blueprint along the edges and those can be ignored - focus on the drawings in the central part of the snippet. Provide a concise 'title' (3-8 words) and a 'description' for this specific instruction step or area for an accessibility tag. The description should explain the pieces shown and how they can be identified and oriented in a tactile way. Most of the materials in the kit are made from 5mm thick laser-cut plywood and are fastened using #4-40 brass hardware. Additional parts are often plastic and/or electronics components. This specific sheet of the blueprint instructions is a "components" sheet that is designed to help students lay out, organize/knoll all of the pieces in the kit as they assemble or disassemble their kit.`
+        }
+    }
 
     document.getElementById('file-input').onchange = function(e) {
         const file = e.target.files[0];
@@ -289,18 +313,10 @@
         // Clean the base64 string (remove 'data:image/png;base64,')
         const base64Image = detailImg.src.split(',')[1];
 
-        const prompt = `You are an educator who is providing descriptions of visual instructions to young students with low or no vision. The assembly instructions for a STEM kit 
-        are in the format of a blueprint. Look at this blueprint snippet. The snippet may contain clips from irrelevant parts of the blueprint along the edges 
-        and those can be ignored - focus on the drawings in the central part of the snippet.
-        Provide a concise 'title' (3-8 words) and a 'description' for this specific instruction step or area for an accessibility tag.
-        The description should explain the pieces shown, how they can be identified and oriented in a tactile way, and how the instructions show they should be assembled.
-        Most of the materials in the kit are made from 5mm thick laser-cut plywood and are fastened using #4-40 brass hardware. 
-        Additional parts are often plastic and/or electronics components.
-        ${hints ? "Context Hints: " + hints : ""}
-        Return ONLY a JSON object like this: {"title": "...", "description": "..."}`;
+        const prompt = promptData[currentType].prompt + `${hints ? "Context Hints: " + hints : ""} \n\nReturn ONLY a JSON object like this: {"title": "...", "description": "..."}`;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            const fetchOptions = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -311,7 +327,8 @@
                         ]
                     }]
                 })
-            });
+            };
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, fetchOptions);
 
             const data = await response.json();
             console.log(data);
@@ -328,6 +345,17 @@
                 const result = JSON.parse(cleanJson);
 
                 // Fill the form
+                if (stepNumber) {
+                    let sheetType = '';
+                    if (currentType === 'Assemble') {
+                        sheetType = ' Assembly';
+                    } else if (currentType === 'Assemble') {
+                        sheetType = ' Disassembly';
+                    }
+                    document.getElementById('el-title').value = `Step ${stepNumber}${sheetType}: ` + result.title;
+                } else {
+                    document.getElementById('el-title').value = result.title;
+                }
                 document.getElementById('el-title').value = result.title;
                 document.getElementById('el-desc').value = result.description;
             }
@@ -357,6 +385,34 @@
     apiKeyInput.addEventListener('input', (e) => {
         localStorage.setItem('gemini_api_key', e.target.value);
     });
+
+    function switchType() {
+        const btn = document.getElementById('type-btn');
+        const typeList = ['Assemble', 'Disassemble', 'Component'];
+        currentTypeIndex = typeList.indexOf(btn.innerText);
+        currentTypeIndex++;
+        currentTypeIndex = currentTypeIndex % 3;
+        currentType = typeList[currentTypeIndex];
+        btn.innerText = currentType;
+
+        if (currentType === 'Component') {
+            document.querySelectorAll('.btn-material')[0].classList.remove('hidden');
+            document.querySelectorAll('.btn-material')[1].classList.remove('hidden');
+            document.querySelectorAll('.btn-material')[2].classList.remove('hidden');
+            document.querySelectorAll('.btn-material')[3].classList.remove('hidden');
+            document.querySelectorAll('.btn-instruction')[0].classList.add('hidden');
+            document.querySelectorAll('.btn-instruction')[1].classList.add('hidden');
+            document.querySelectorAll('.btn-instruction')[2].classList.add('hidden');
+        } else {
+            document.querySelectorAll('.btn-material')[0].classList.add('hidden');
+            document.querySelectorAll('.btn-material')[1].classList.add('hidden');
+            document.querySelectorAll('.btn-material')[2].classList.add('hidden');
+            document.querySelectorAll('.btn-material')[3].classList.add('hidden');
+            document.querySelectorAll('.btn-instruction')[0].classList.remove('hidden');
+            document.querySelectorAll('.btn-instruction')[1].classList.remove('hidden');
+            document.querySelectorAll('.btn-instruction')[2].classList.remove('hidden');            
+        }
+    }
 </script>
 </body>
 </html>
