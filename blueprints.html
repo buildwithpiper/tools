@@ -154,7 +154,14 @@
         .nav-item.active { background: #eff6ff; border-color: var(--primary); font-weight: 600; color: var(--primary); }
 
         /* Main Viewport */
-        main { flex: 1; position: relative; overflow: hidden; background-color: #333; display: block; }
+        main { 
+            flex: 1; 
+            position: relative; 
+            overflow: hidden; 
+            background-image: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'><path fill='%23fff' d='m118.9407 149.6798 30.9526-30.9526 31.3795 31.3795-30.9526 30.9526zm32.0574 3.453c2.8657-3.5133 4.091-6.995.541-10.5946-2.102-2.1315-5.5566-3.2499-11.2623 2.4559l-2.1242 2.1241 14.7292 14.7292 3.4154-3.4155zm-6.0708-6.0708c1.1133-.9044 2.4928-2.1964 3.629-1.0674 1.0331 1.0261-.002 2.6757-1.0112 3.6852zm-96.0035 72.6347 30.9525-30.9526 31.3796 31.3795-30.9526 30.9526zm32.0574 3.453c2.8657-3.5133 4.091-6.995.541-10.5946-2.102-2.1315-5.5566-3.2498-11.2623 2.4559l-2.1242 2.1241 14.7292 14.7292 3.4154-3.4155zm-6.0708-6.0708c1.1133-.9044 2.4928-2.1964 3.629-1.0673 1.0327 1.0264-.0017 2.6756-1.0112 3.6851zm9.0218-32.3906 30.7391-30.7392 31.3796 31.3796-30.7392 30.739zm25.2692-9.099-3.3088 3.3088 15.0678 15.0677 3.3087-3.3087zm79.5427-95.713 30.9526-30.9525 31.3795 31.3795-30.9526 30.9526zm41.0566 5.579 4.0458-4.0458-9.8607-2.1902c1.0251-1.8642.8986-5.161-1.6663-7.3913-4.0485-3.5203-7.9608-1.0424-10.959 1.9788l-2.5925 2.6122 15.0345 15.0345 3.3103-3.3103-3.7472-3.7472zm-14.2505-9.1573s2.1417-2.319 3.463-1.0152c1.6605 1.6383-.8527 3.6215-.8527 3.6215zm-61.601 38.3733 30.739-30.739 31.3796 31.3794-30.7391 30.7392zm39.7046 0-5.3366 5.3367-2.775-2.775 5.3366-5.3367-2.9886-2.9885-5.3366 5.3366-2.3481-2.3481 5.3366-5.3367-3.6289-3.6289-8.7521 8.7521 15.156 15.1561 8.7522-8.7521z' opacity='.05'/></svg>");
+            background-color: #333; 
+            background-size: 400px;
+            display: block; }
         #svg-wrapper { position: absolute; transform-origin: 0 0; cursor: grab; visibility: visible; }
         #svg-wrapper svg { display: block; width: 100%; height: 100%; background: white; box-shadow: 0 0 50px rgba(0,0,0,0.3); }
 
@@ -169,7 +176,16 @@
             filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5));
         }
 
-        .controls { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; }
+        .controls { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            display: flex; 
+            gap: 10px; 
+            background: rgba(50, 50, 50, 0.8);
+            padding: 10px;
+            border-radius: 58px;
+        }
         .btn {
             width: 48px; height: 48px; border-radius: 50%; border: 2px solid transparent;
             background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
