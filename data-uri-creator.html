@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base64 DataURI Converter</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 95%;
+            max-width: 650px;
+        }
+
+        header { text-align: center; margin-bottom: 2rem; }
+        h2 { margin: 0 0 0.5rem 0; color: #111827; }
+        p { color: #6b7280; margin: 0; }
+
+        /* The Drop Zone */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.2s ease;
+            background: #f9fafb;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: #eff6ff;
+        }
+
+        /* Action Buttons */
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover { background: var(--primary-hover); }
+        .btn-secondary { background: #64748b; margin-top: 10px; }
+        .btn-secondary:hover { background: #475569; }
+
+        #fileInput { display: none; }
+
+        /* Results Area */
+        .result-area {
+            margin-top: 2rem;
+            display: none;
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            resize: none;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #334155;
+            box-sizing: border-box;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h2>DataURI Converter</h2>
+        <p>Convert any file to a Base64 string locally</p>
+    </header>
+
+    <div class="drop-zone" id="dropZone">
+        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: #94a3b8">
+            <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        <span>Drag and drop file here</span>
+        <span style="color: #94a3b8; font-size: 0.8rem;">— OR —</span>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">
+            Choose File to Upload
+        </button>
+        <input type="file" id="fileInput">
+    </div>
+
+    <div class="result-area" id="resultArea">
+        <div class="stats">
+            <span id="fileName"></span>
+            <span id="fileType"></span>
+        </div>
+        <textarea id="output" readonly></textarea>
+        <div class="controls">
+            <button class="btn" style="flex: 2;" onclick="copyToClipboard()" id="copyBtn">Copy DataURI</button>
+            <button class="btn btn-secondary" style="flex: 1;" onclick="resetAll()">Clear</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const resultArea = document.getElementById('resultArea');
+    const output = document.getElementById('output');
+    const fileNameDisp = document.getElementById('fileName');
+    const fileTypeDisp = document.getElementById('fileType');
+    const copyBtn = document.getElementById('copyBtn');
+
+    // Drag and Drop Handlers
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    // Input Change Handler
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            const dataUri = e.target.result;
+            
+            // Populate UI
+            fileNameDisp.textContent = file.name;
+            fileTypeDisp.textContent = file.type || 'unknown type';
+            output.value = dataUri;
+            
+            // Show result area
+            resultArea.style.display = 'block';
+            copyBtn.textContent = 'Copy DataURI';
+        };
+
+        reader.onerror = () => alert("Failed to read file.");
+        
+        // This is the core magic: it creates the full DataURI string
+        reader.readAsDataURL(file);
+    }
+
+    async function copyToClipboard() {
+        try {
+            await navigator.clipboard.writeText(output.value);
+            copyBtn.textContent = '✓ Copied!';
+            setTimeout(() => copyBtn.textContent = 'Copy DataURI', 2000);
+        } catch (err) {
+            alert('Selection failed. Please copy manually.');
+        }
+    }
+
+    function resetAll() {
+        resultArea.style.display = 'none';
+        output.value = '';
+        fileInput.value = '';
+    }
+</script>
+
+</body>
+</html>
