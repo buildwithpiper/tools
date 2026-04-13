@@ -181,6 +181,10 @@
             height: 24px;
             width: 24px;
         }
+        a.btn {
+            height: 44px;
+            width: 44px;
+        }
         /* --- HELP MODAL --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -224,10 +228,10 @@
 
         <div class="controls">
             <button class="btn" onclick="openHelp()" aria-label="Keyboard Shortcuts Help" title="Help">?</button>
-            <a id="pdf-download-btn" class="btn" onclick="downloadPDF()" aria-label="Download PDF" title="Download PDF">
+            <a id="pdf-download-btn" class="btn" onclick="downloadPDF()" aria-label="Download PDF" title="Download PDF" tabindex="0">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.9 47.7">
-                    <path d="M21.1705 4.156v20.633H10.3938L23.91 41.4243 37.5062 24.789H26.6495V4.156Z"/>
-                    <path fill="none" stroke="#000" stroke-width="2" d="M7.6352 42.544h32.6296"/>
+                    <path fill="#333" d="M21.1705 4.156v20.633H10.3938L23.91 41.4243 37.5062 24.789H26.6495V4.156Z"/>
+                    <path fill="none" stroke="#333" stroke-width="2" d="M7.6352 42.544h32.6296"/>
                 </svg>
             </a>
             <button class="btn" onclick="zoomAction(1.2)" aria-label="Zoom In" title="Zoom In">
@@ -445,8 +449,19 @@
         // URL Parameter Handling
         function handleURLParams() {
             const params = new URLSearchParams(window.location.search);
-            const kIndex = parseInt(params.get('kit'));
-            const pIndex = parseInt(params.get('page'));
+            const kParam = (params.get('kit') || '').toLowerCase();
+            const pParam = (params.get('page') || '').toUpperCase();
+
+            let pIndex = parseInt(pParam);
+            if (pParam === 'A' || pParam === 'B' || pParam === 'C' || pParam === 'D') {
+                pIndex = pParam.charCodeAt(0) - 65;
+            }
+
+            let kIndex = parseInt(kParam);
+            if (isNaN(kIndex)) {
+                kIndex = blueprintKits.indexOf(blueprintKits.filter(k => k.tag === kParam)[0]);
+            }
+
 
             if (!isNaN(kIndex) && blueprintKits[kIndex]) {
                 const group = document.getElementById(`kit-group-${kIndex}`);
@@ -456,14 +471,14 @@
                 if (!isNaN(pIndex) && blueprintKits[kIndex].pages[pIndex]) {
                     const page = blueprintKits[kIndex].pages[pIndex];
                     const btn = document.getElementById(`page-btn-${kIndex}-${pIndex}`);
-                    loadSVG(page, btn);
+                    loadSVG(page, btn, blueprintKits[kIndex].pdf);
                 }
             }
         }
 
         // Update the browser URL without refreshing the page
         function updateURL(kIndex, pIndex) {
-            const newurl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?kit=${kIndex}&page=${pIndex}`;
+            const newurl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?kit=${blueprintKits[kIndex].tag}&page=${String.fromCharCode(65 + pIndex)}`;
             window.history.pushState({path:newurl}, '', newurl);
         }
 
@@ -471,10 +486,13 @@
         window.onload = handleURLParams;
 
         // Load SVG with Raster Ghost
-        async function loadSVG(page, el) {
+        async function loadSVG(page, el, pdf) {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             el.classList.add('active');
             
+            document.getElementById('pdf-download-btn').href = 'assets/blueprints/' + pdf;
+            document.getElementById('pdf-download-btn').download = pdf;
+
             try {
                 const resp = await fetch(page.url);
                 const svgText = await resp.text();
