@@ -224,12 +224,12 @@
 
         <div class="controls">
             <button class="btn" onclick="openHelp()" aria-label="Keyboard Shortcuts Help" title="Help">?</button>
-            <button class="btn" onclick="downloadPDF()" aria-label="Download PDF" title="Download PDF">
+            <a id="pdf-download-btn" class="btn" onclick="downloadPDF()" aria-label="Download PDF" title="Download PDF">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.9 47.7">
                     <path d="M21.1705 4.156v20.633H10.3938L23.91 41.4243 37.5062 24.789H26.6495V4.156Z"/>
                     <path fill="none" stroke="#000" stroke-width="2" d="M7.6352 42.544h32.6296"/>
                 </svg>
-            </button>
+            </a>
             <button class="btn" onclick="zoomAction(1.2)" aria-label="Zoom In" title="Zoom In">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.9 47.7">
                     <g fill="none" stroke="#aaa" transform="translate(-60 -97.4)">
@@ -292,6 +292,7 @@
             {
                 name: "Computer Kit (V4)",
                 tag: "pc04",
+                pdf: "piper-computer-kit-blueprint.pdf",
                 pages: [
                     { id: 'pc04-1', title: 'Side A - Assembly', url: 'assets/blueprints/pc04-1.svg' },
                     { id: 'pc04-2', title: 'Side B - Disassembly', url: 'assets/blueprints/pc04-2.svg' },
@@ -301,6 +302,7 @@
             {
                 name: "Base Station",
                 tag: "base-station",
+                pdf: "base-station-blueprint.pdf",
                 pages: [
                     { id: 'base-1', title: 'Side A - Assembly', url: 'assets/blueprints/base-station-1.svg' },
                     { id: 'base-2', title: 'Side B - Disassembly', url: 'assets/blueprints/base-station-2.svg' },
@@ -311,6 +313,7 @@
             {
                 name: "Beam Break",
                 tag: "beam-break",
+                pdf: "beam-break-blueprint.pdf",
                 pages: [
                     { id: 'beam-break-1', title: 'Side A - Assembly', url: 'assets/blueprints/beam-break-1.svg' },
                     { id: 'beam-break-2', title: 'Side B - Disassembly', url: 'assets/blueprints/beam-break-2.svg' },
@@ -320,6 +323,7 @@
             {
                 name: "Controller",
                 tag: "controller",
+                pdf: "controller-blueprint.pdf",
                 pages: [
                     { id: 'controller-1', title: 'Side A - Assembly', url: 'assets/blueprints/controller-1.svg' },
                     { id: 'controller-2', title: 'Side B - Disassembly', url: 'assets/blueprints/controller-2.svg' },
@@ -328,6 +332,7 @@
             {
                 name: "Lightshow",
                 tag: "lightshow",
+                pdf: "lightshow-blueprint.pdf",
                 pages: [
                     { id: 'lightshow-1', title: 'Side A - Assembly', url: 'assets/blueprints/lightshow-1.svg' },
                     { id: 'lightshow-2', title: 'Side B - Disassembly', url: 'assets/blueprints/lightshow-2.svg' },
@@ -337,6 +342,7 @@
             {
                 name: "Motion Ball",
                 tag: "motion-ball",
+                pdf: "motion-ball-blueprint.pdf",
                 pages: [
                     { id: 'motion-ball-1', title: 'Side A - Assembly', url: 'assets/blueprints/motion-ball-1.svg' },
                     { id: 'motion-ball-2', title: 'Side B - Disassembly', url: 'assets/blueprints/motion-ball-2.svg' }
@@ -345,6 +351,7 @@
             {
                 name: "Pulse",
                 tag: "pulse",
+                pdf: "pulse-blueprint.pdf",
                 pages: [
                     { id: 'pulse-sensor-1', title: 'Side A - Assembly', url: 'assets/blueprints/pulse-sensor-1.svg' },
                     { id: 'pulse-sensor-2', title: 'Side B - Disassembly', url: 'assets/blueprints/pulse-sensor-2.svg' }
@@ -352,7 +359,8 @@
             },
             {
                 name: "Rover",
-                tag: "pc04",
+                tag: "rover",
+                pdf: "rover-blueprint.pdf",
                 pages: [
                     { id: 'rover-1', title: 'Side A - Assembly', url: 'assets/blueprints/rover-1.svg' },
                     { id: 'rover-2', title: 'Side B - Disassembly', url: 'assets/blueprints/rover-2.svg' },
@@ -362,6 +370,7 @@
             {
                 name: "Soil Sensor",
                 tag: "soil-sensor",
+                pdf: "soil-sensor-blueprint.pdf",
                 pages: [
                     { id: 'soil-sensor-1', title: 'Side A - Assembly', url: 'assets/blueprints/soil-sensor-1.svg' },
                     { id: 'soil-sensor-2', title: 'Side B - Disassembly', url: 'assets/blueprints/soil-sensor-2.svg' }
@@ -370,6 +379,7 @@
             {
                 name: "Solar House",
                 tag: "solar-house",
+                pdf: "solar-house-blueprint.pdf",
                 pages: [
                     { id: 'solar-house-1', title: 'Side A - Assembly', url: 'assets/blueprints/solar-house-1.svg' },
                     { id: 'solar-house-2', title: 'Side B - Disassembly', url: 'assets/blueprints/solar-house-2.svg' },
@@ -379,6 +389,7 @@
             {
                 name: "Walker",
                 tag: "walker",
+                pdf: "walker-blueprint.pdf",
                 pages: [
                     { id: 'walker-1', title: 'Side A - Assembly', url: 'assets/blueprints/walker-1.svg' },
                     { id: 'walker-2', title: 'Side B - Disassembly', url: 'assets/blueprints/walker-2.svg' },
@@ -386,13 +397,6 @@
                 ]
             }
         ];
-
-        let blueprintItems = {};
-        blueprintKits.forEach(b => {
-            b.pages.forEach(p => {
-                blueprintItems[p.id] = {url: p.url.replace(/\.svg/g, '.pdf'), filename: (b.name + ' blueprint ' + p.title).replace(/ - \w+/g, '').replace(/ /g, '_').toLowerCase()};
-            });
-        });
 
         const viewport = document.getElementById('viewport');
         const wrapper = document.getElementById('svg-wrapper');
